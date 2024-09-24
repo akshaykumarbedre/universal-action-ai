@@ -16,15 +16,15 @@ from dotenv import load_dotenv
 
 class ContentProcessor:
     def __init__(self):
-        load_dotenv()
-        self.configure_environment()
+        #load_dotenv()
+        #self.configure_environment()
         self.configure_streamlit()
 
     def configure_environment(self):
-        #os.environ['LANGCHAIN_API_KEY'] = os.getenv("LANGCHAIN_API_KEY")
-        #os.environ['LANGCHAIN_TRACING_V2'] = "true"
-        #os.environ['LANGCHAIN_PROJECT'] = "LangChain: Process Content from Multiple Sources"
-        #os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
+        os.environ['LANGCHAIN_API_KEY'] = os.getenv("LANGCHAIN_API_KEY")
+        os.environ['LANGCHAIN_TRACING_V2'] = "true"
+        os.environ['LANGCHAIN_PROJECT'] = "LangChain: Process Content from Multiple Sources"
+        os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
 
     def configure_streamlit(self):
         st.set_page_config(page_title="LangChain: Process Content from Multiple Sources", page_icon="🦜")
