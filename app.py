@@ -9,49 +9,31 @@ from langchain.schema import Document
 import os 
 import tempfile
 from dotenv import load_dotenv
-import tiktoken
+
 load_dotenv()
 
-os.environ['LANGCHAIN_API_KEY']=os.getenv("LANGCHAIN_API_KEY")
-os.environ['LANGCHAIN_TRACING_V2']="true"
-os.environ['LANGCHAIN_PROJECT']="LangChain: Process Content from Multiple Sources"
+os.environ['LANGCHAIN_API_KEY'] = os.getenv("LANGCHAIN_API_KEY")
+os.environ['LANGCHAIN_TRACING_V2'] = "true"
+os.environ['LANGCHAIN_PROJECT'] = "LangChain: Process Content from Multiple Sources"
 os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
 
 st.set_page_config(page_title="LangChain: Process Content from Multiple Sources", page_icon="🦜")
 st.title("🦜 LangChain: Process Content from Multiple Sources")
 
-# Initialize session state for PDF page ranges
 if 'pdf_page_ranges' not in st.session_state:
     st.session_state.pdf_page_ranges = {}
 
-# Function to count tokens
-def count_tokens(text, model="gpt-3.5-turbo"):
-    encoding = tiktoken.encoding_for_model(model)
-    return len(encoding.encode(text))
-
-# Function to estimate cost
-def estimate_cost(total_tokens, model):
-    pricing = {
-        "llama3-8b-8192": 0.05,
-        "gemma2-9b-it": 0.05,
-        "mixtral-8x7b-32768": 0.10
-    }
-    return (total_tokens / 1000) * pricing[model]
-
-# Function to calculate optimal chunk size 
 def calculate_chunk_size(text_length, model_context_length):
     target_chunk_size = model_context_length // 3
     return max(1000, min(target_chunk_size, model_context_length // 2))
 
-# Sidebar for API key input and PDF page selection
 with st.sidebar:
     st.header("Configuration")
     groq_api_key = st.text_input("Groq API Key", type="password")
-    model = st.selectbox("Select Model", ["llama3-8b-8192","gemma2-9b-it", "mixtral-8x7b-32768"])
+    model = st.selectbox("Select Model", ["llama3-8b-8192", "gemma2-9b-it", "mixtral-8x7b-32768"])
     
     st.header("PDF Settings")
 
-# Main content
 st.subheader('Select Sources to Process')
 use_urls = st.checkbox("URLs (YouTube or websites)")
 use_files = st.checkbox("File Upload (PDF or text files)")
@@ -67,7 +49,6 @@ if use_files:
     if uploaded_files:
         sources['files'] = uploaded_files
         
-        # PDF page range selection
         for uploaded_file in uploaded_files:
             if uploaded_file.type == "application/pdf":
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
@@ -78,10 +59,8 @@ if use_files:
                 pdf_pages = loader.load()
                 total_pages = len(pdf_pages)
 
-                # Use the file name as a unique key for session state
                 file_key = f"pdf_range_{uploaded_file.name}"
                 
-                # Initialize the range in session state if it doesn't exist
                 if file_key not in st.session_state.pdf_page_ranges:
                     st.session_state.pdf_page_ranges[file_key] = (1, total_pages)
 
@@ -100,13 +79,11 @@ if use_files:
                         st.write("This PDF has only one page.")
                         st.session_state.pdf_page_ranges[file_key] = (1, 1)
 
-                # Clean up the temporary file
                 os.unlink(temp_file_path)
 
 if use_text:
     sources['text'] = st.text_area("Enter text content", placeholder="Paste your text here...")
 
-# Predefined actions
 predefined_actions = [
     "Summarize", "Analyze", "Review", "Critique", "Explain",
     "Paraphrase", "Simplify", "Elaborate", "Extract key points",
@@ -115,7 +92,6 @@ predefined_actions = [
     "Fact-check", "Create study notes", "Generate questions"
 ]
 
-# Action selection
 action_type = st.radio("Choose action type", ["Predefined", "Custom"])
 
 if action_type == "Predefined":
@@ -123,7 +99,6 @@ if action_type == "Predefined":
 else:
     action = st.text_input("Enter Custom Action", placeholder="e.g., Summarize in bullet points")
 
-# Templates
 prompt_template = """
 Provide a {action} of the following content:
 
@@ -145,7 +120,6 @@ Refined {action}:
 prompt = PromptTemplate(input_variables=['text', 'action'], template=prompt_template)
 refine_prompt = PromptTemplate(input_variables=['text', 'action', 'existing_answer'], template=refine_template)
 
-# Process button
 if st.button("Process Content"):
     if not groq_api_key.strip():
         st.error("Please provide your Groq API key in the sidebar.")
@@ -158,7 +132,6 @@ if st.button("Process Content"):
             llm = ChatGroq(model=model, groq_api_key=groq_api_key)
             
             all_docs = []
-            total_tokens = 0
             
             with st.spinner(f"Processing... ({action.lower()})"):
                 if 'urls' in sources and sources['urls']:
@@ -245,16 +218,6 @@ if st.button("Process Content"):
                     else:
                         split_docs.extend(text_splitter.split_documents([doc]))
                 
-                for doc in split_docs:
-                    total_tokens += count_tokens(doc.page_content)
-                
-                total_tokens += count_tokens(prompt_template) * len(split_docs)
-                total_tokens += count_tokens(refine_template) * (len(split_docs) - 1)
-                
-                estimated_cost = estimate_cost(total_tokens, model)
-                
-                st.info(f"Estimated cost for processing: ${estimated_cost:.4f}")
-                
                 chain = load_summarize_chain(
                     llm=llm,
                     chain_type="refine",
@@ -264,17 +227,9 @@ if st.button("Process Content"):
                 
                 output = chain.run(input_documents=split_docs, action=action.lower())
                 
-                output_tokens = count_tokens(output)
-                total_tokens += output_tokens
-                
-                final_cost = estimate_cost(total_tokens, model)
-                
                 st.success("Processing complete!")
                 st.subheader(f"{action} Result")
                 st.write(output)
-                
-                st.info(f"Total tokens processed: {total_tokens}")
-                st.info(f"Final cost for processing: ${final_cost:.4f}")
                 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
