@@ -9,3 +9,4 @@ unstructured
 pytube
 pdf2image
 pillow
+sentence_transformers
