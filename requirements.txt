@@ -1,1 +1,11 @@
-Hello World!
+streamlit
+langchain
+langchain-groq
+langchain-community
+python-dotenv
+validators
+youtube-transcript-api
+unstructured
+pytube
+pdf2image
+pillow
