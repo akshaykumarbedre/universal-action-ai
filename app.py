@@ -8,14 +8,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 import os 
 import tempfile
-from dotenv import load_dotenv
-
-load_dotenv()
-
-os.environ['LANGCHAIN_API_KEY'] = os.getenv("LANGCHAIN_API_KEY")
-os.environ['LANGCHAIN_TRACING_V2'] = "true"
-os.environ['LANGCHAIN_PROJECT'] = "LangChain: Process Content from Multiple Sources"
-os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
 
 st.set_page_config(page_title="LangChain: Process Content from Multiple Sources", page_icon="🦜")
 st.title("🦜 LangChain: Process Content from Multiple Sources")
