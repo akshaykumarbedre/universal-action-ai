@@ -16,19 +16,21 @@ from dotenv import load_dotenv
 
 class ContentProcessor:
     def __init__(self):
-        #load_dotenv()
-        #self.configure_environment()
         self.configure_streamlit()
-
-    def configure_environment(self):
-        os.environ['LANGCHAIN_API_KEY'] = os.getenv("LANGCHAIN_API_KEY")
-        os.environ['LANGCHAIN_TRACING_V2'] = "true"
-        os.environ['LANGCHAIN_PROJECT'] = "LangChain: Process Content from Multiple Sources"
-        os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
+        self.default_api_key = "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"
+        self.initialize_session_state()
 
     def configure_streamlit(self):
         st.set_page_config(page_title="LangChain: Process Content from Multiple Sources", page_icon="🦜")
         st.title("🦜 LangChain: Process Content from Multiple Sources")
+
+    def initialize_session_state(self):
+        if 'action_count' not in st.session_state:
+            st.session_state.action_count = 0
+        if 'docs' not in st.session_state:
+            st.session_state.docs = None
+        if 'retriever' not in st.session_state:
+            st.session_state.retriever = None
 
     def calculate_chunk_size(self, text_length: int, model_context_length: int) -> int:
         target_chunk_size = model_context_length // 3
@@ -37,7 +39,11 @@ class ContentProcessor:
     def get_configuration(self) -> Dict[str, Any]:
         with st.sidebar:
             st.header("Configuration")
-            groq_api_key = st.text_input("Groq API Key", type="password")
+            if st.session_state.action_count >= 3:
+                groq_api_key = st.text_input("Groq API Key", type="password")
+            else:
+                groq_api_key = self.default_api_key
+                st.info(f"Using default API key. {3 - st.session_state.action_count} free actions remaining.")
             model = st.selectbox("Select Model", ["llama3-8b-8192", "gemma2-9b-it", "mixtral-8x7b-32768"])
             
             st.header("Task")
@@ -73,6 +79,7 @@ class ContentProcessor:
 
         os.unlink(temp_file_path)
         return pdf_pages
+
 
     def process_content(self, sources: Dict[str, Any]) -> List[Document]:
         all_docs = []
@@ -115,7 +122,7 @@ class ContentProcessor:
                     os.unlink(temp_file_path)
 
         if 'text' in sources and sources['text']:
-            with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".txt") as temp_file:
+            with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".txt", encoding="utf-8") as temp_file:
                 temp_file.write(sources['text'])
                 temp_file_path = temp_file.name
 
@@ -168,7 +175,9 @@ class ContentProcessor:
             refine_prompt=prompts["refine_prompt"]
         )
         
-        return chain.run(input_documents=split_docs, action=action.lower())
+        result = chain.run(input_documents=split_docs, action=action.lower())
+        st.session_state.action_count += 1
+        return result
 
     def create_retriever(self, docs: List[Document]) -> FAISS:
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
@@ -193,14 +202,12 @@ class ContentProcessor:
             action = "Answer questions about the content"
 
         process_button = st.button("Process Content")
-        
-        if 'docs' not in st.session_state:
-            st.session_state.docs = None
-        if 'retriever' not in st.session_state:
-            st.session_state.retriever = None
 
         if process_button:
-            if not config['groq_api_key'].strip():
+            if st.session_state.action_count >= 3:
+                self.default_api_key = ""
+                st.error("You have used all free actions. Please provide your Groq API Key in the sidebar.")
+            elif not config['groq_api_key'].strip():
                 st.error("Please provide your Groq API Key in the sidebar.")
             elif not sources:
                 st.error("Please select at least one source type and provide content.")
@@ -220,6 +227,7 @@ class ContentProcessor:
                     else:  # Interactive Q&A
                         st.session_state.retriever = self.create_retriever(st.session_state.docs)
                         st.success("Document processed and ready for questions!")
+                        st.session_state.action_count += 1
 
         if config['task'] == "Interactive Q&A" and st.session_state.retriever is not None:
             question = st.text_input("Ask a question about the document:")
